@@ -1,0 +1,41 @@
+create_sample_event() {
+    pushd infra
+    CLIENT_SECRET=$(terraform output --raw application_password)
+    CLIENT_ID=$(terraform output --raw client_id)
+    TENANT_ID=$(terraform output --raw tenant_id)
+    popd
+    uv run graph_calendar.py \
+        --tenant-id $TENANT_ID \
+        --client-id $CLIENT_ID \
+        --client-secret $CLIENT_SECRET \
+        --redirect-uri http://localhost:8400/callback \
+        --title "Team sync" \
+        --start 2025-10-17T09:00:00 \
+        --end 2025-10-17T09:30:00 \
+        --timezone Europe/Rome \
+        --location "Room 1"
+}
+
+read_calendar() {
+    source .env
+    START_DATE=$(date -v-1w "+%Y-%m-%d")
+    END_DATE=$(date -v+1w "+%Y-%m-%d")
+    TIMEZONE=Europe/Rome
+    uv run ics_reader.py --source $CALENDAR_SOURCE --start $START_DATE --end $END_DATE --tz $TIMEZONE > data/events.json
+}
+
+lint() {
+    uvx ruff check --fix
+    uvx ruff format
+}
+
+
+serve() {
+    uv run uvicorn app:app --reload --host 0.0.0.0 --port 8000
+}
+
+# execute the function corresponding to the first parameter passed to this script
+# passing all the remaining arguments
+
+COMMAND=$1
+$COMMAND ${@:2}
